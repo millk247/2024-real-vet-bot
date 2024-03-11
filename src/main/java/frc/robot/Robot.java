@@ -65,6 +65,9 @@ public class Robot extends TimedRobot {
   private final DifferentialDrive robotDrive = new DifferentialDrive(m_leftfront, m_righfront);
   private final Joystick driver = new Joystick(0);
   private final XboxController operator = new XboxController(1);
+  
+  private final Timer timerY = new Timer();
+  private final Timer timerA = new Timer();
 
   double rotateSpeed = 0; //constants
   double launchpower = 0;
@@ -81,14 +84,20 @@ public class Robot extends TimedRobot {
     SmartDashboard.putData("Auto choices", m_chooser);
 
      //invert motor
-     m_leftfront.setInverted(true);
+     m_leftback.setInverted(true);
+     m_rotateRight.setInverted(false);
+     
 
-     //CAN follow method
-     m_leftback.follow(m_leftfront);
-     m_rightback.follow(m_righfront);
+     //CANREV follow method
+
+     // m_leftback.follow(m_leftfront);
+     //m_rightback.follow(m_righfront);
      m_launchBottom.follow(m_launchTop);
-     m_rotateRight.follow(m_rotateLeft);
+     //m_rotateRight.follow(m_rotateLeft);
  
+    //CAN CTRE (VICTOR SPX) follower method
+     m_leftback.set(ControlMode.Follower, leftfrontID);
+     m_rightback.set(ControlMode.Follower, rightbackID);
   }
 
   /**
@@ -113,16 +122,19 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
+    /* 
     m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
-
+*/
 
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
+
+    /* 
     switch (m_autoSelected) {
       case kCustomAuto:
         // Put custom auto code here
@@ -131,47 +143,92 @@ public class Robot extends TimedRobot {
       default:
         // Put default auto code here
         break;
-    }
+    }*/
   }
 
   /** This function is called once when teleop is enabled. */
   @Override
-  public void teleopInit() {
+  public void teleopInit() {}
 
-    robotDrive.arcadeDrive(-driver.getY(), -driver.getX());
+
+  /** This function is called periodically during operator control. */
+  @Override
+  public void teleopPeriodic() {
+
+
+
+    robotDrive.arcadeDrive(driver.getY(), driver.getX());
+
+    if(operator.getYButton()){
+      launchpower = 0.7;
+    }
+    else {
+      launchpower = 0; }  
   
     // rotate arm
     double rotateSpeed = operator.getLeftY(); //Get the rotate speed, forward is down
       if(rotateSpeed > 0) { //stick pulled down(+) -> rotate up
-        rotateSpeed *= 0.5; //apply a scale factor of to the rotateSpeed variable
+        rotateSpeed *= 0.2; //apply a scale factor of to the rotateSpeed variable
       }  else if(rotateSpeed < 0) {  // stick pushed forward (-)  -> rotate down
-        rotateSpeed *= 0.1;
+        rotateSpeed *= 0.2;
       }  else{
         rotateSpeed *= 0;  // I would like to use a motor stop here
       }
+      
 
+    /*
     if (operator.getAButton()){
-        feedpower = 0.5;
+        timerA.reset();
     }
-
-    if (operator.getYButton()){
-        launchpower = 0.5;
+    else if (timerA.get()<1){
+      feedpower = 1;
     }
-
-
-    m_rotateLeft.set(rotateSpeed); // motor values are set based on logic above
-    m_feed.set(feedpower);
-    m_launchTop.set(launchpower);
-
-   }
+    
+    else if (timerA.get()>1){
+      feedpower = 0;
+      launchpower = 0;
+    }
 
   
 
- 
+    else  {
+    if (operator.getYButton()){
+        timerY.reset();
+    }
 
-  /** This function is called periodically during operator control. */
-  @Override
-  public void teleopPeriodic() {}
+    else if (timerY.get()<.1){
+      feedpower = 1;
+      launchpower = -1;
+    }
+
+    else if (timerY.get()<1){
+      launchpower = -1;
+      feedpower = 0;
+    }
+
+    else if (timerY.get()<2){
+      launchpower = -1;
+      feedpower = -1;
+    }
+  
+    else {
+      launchpower = 0;
+      feedpower = 0;
+    }
+     
+  }
+
+
+    m_feed.set(feedpower);
+*/
+     m_rotateLeft.set(rotateSpeed); // motor values are set based on logic above
+     m_rotateRight.set(rotateSpeed);
+
+     m_launchTop.set(launchpower);
+
+
+     
+  }
 
   /** This function is called once when the robot is disabled. */
   @Override
@@ -196,4 +253,5 @@ public class Robot extends TimedRobot {
   /** This function is called periodically whilst in simulation. */
   @Override
   public void simulationPeriodic() {}
-}
+  
+} // end of class
