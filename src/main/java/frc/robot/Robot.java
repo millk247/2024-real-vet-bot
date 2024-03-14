@@ -30,8 +30,8 @@ import edu.wpi.first.wpilibj.Timer;
  * project.
  */
 public class Robot extends TimedRobot {
-  private static final String kDefaultAuto = "Default";
-  private static final String kCustomAuto = "My Auto";
+  private static final String kDefaultDriveBack = "Default Auto_drive back";
+  private static final String kShootBack = "lean_shoot_driveback";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
@@ -55,7 +55,7 @@ public class Robot extends TimedRobot {
   private final WPI_VictorSPX m_leftback = new WPI_VictorSPX(leftbackID);
   private final WPI_VictorSPX m_righfront = new WPI_VictorSPX(rightfrontID);
   private final WPI_VictorSPX m_rightback = new WPI_VictorSPX(rightbackID);
-  private final CANSparkMax m_feed = new CANSparkMax(feedID, MotorType.kBrushless);
+  private final CANSparkMax m_feed = new CANSparkMax(feedID, MotorType.kBrushed);
   private final CANSparkMax m_launchTop = new CANSparkMax(lauchTopID, MotorType.kBrushless);
   private final CANSparkMax m_launchBottom = new CANSparkMax(launchBottomID, MotorType.kBrushless);
   private final CANSparkMax m_rotateLeft = new CANSparkMax(rotateLeftID, MotorType.kBrushless);
@@ -79,25 +79,25 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
-    m_chooser.addOption("My Auto", kCustomAuto);
+    m_chooser.setDefaultOption("Default Auto_drive back", kDefaultDriveBack);
+    m_chooser.addOption("lean_shoot_driveback", kShootBack);
     SmartDashboard.putData("Auto choices", m_chooser);
 
      //invert motor
-     m_leftback.setInverted(true);
+     m_leftfront.setInverted(true);
      m_rotateRight.setInverted(false);
-     
+     m_leftback.setInverted(true);
 
      //CANREV follow method
 
-     // m_leftback.follow(m_leftfront);
-     //m_rightback.follow(m_righfront);
+      m_leftback.follow(m_leftfront);
+     m_rightback.follow(m_righfront);
      m_launchBottom.follow(m_launchTop);
      //m_rotateRight.follow(m_rotateLeft);
  
     //CAN CTRE (VICTOR SPX) follower method
-     m_leftback.set(ControlMode.Follower, leftfrontID);
-     m_rightback.set(ControlMode.Follower, rightbackID);
+    // m_leftback.set(ControlMode.Follower, leftfrontID);
+    // m_rightback.set(ControlMode.Follower, rightbackID);
   }
 
   /**
@@ -122,11 +122,12 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    /* 
+    timerY.reset();
+    timerY.start();
+
     m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
-*/
 
   }
 
@@ -134,16 +135,42 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousPeriodic() {
 
-    /* 
+    
     switch (m_autoSelected) {
-      case kCustomAuto:
-        // Put custom auto code here
-        break;
-      case kDefaultAuto:
+      case kDefaultDriveBack:
       default:
-        // Put default auto code here
+      if (timerY.get() < 2.25){
+       robotDrive.arcadeDrive(-0.35, 0,false);
+      }
         break;
-    }*/
+
+      case kShootBack:
+   // speaker shoot and drive backwards
+      if (timerY.get() < 1){
+        m_rotateLeft.set(-0.2);
+        m_feed.set(0);
+        m_launchTop.set(-0.2);
+        robotDrive.arcadeDrive(0, 0,false);
+
+      } else if (timerY.get() < 2){
+        m_rotateLeft.set(0);
+        m_feed.set(0.5);
+        m_launchTop.set(-0.2);
+        robotDrive.arcadeDrive(0, 0,false);
+      
+      }else if (timerY.get() < 4.25){
+        m_rotateLeft.set(0);
+        m_feed.set(0);
+        m_launchTop.set(0);
+        robotDrive.arcadeDrive(-0.35, 0,false);
+      }else{
+        m_rotateLeft.set(0);
+        m_feed.set(0);
+        m_launchTop.set(0);
+        robotDrive.arcadeDrive(0, 0,false);
+      }
+        break;
+    }
   }
 
   /** This function is called once when teleop is enabled. */
@@ -155,72 +182,62 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
 
-
+        
 
     robotDrive.arcadeDrive(driver.getY(), driver.getX());
 
-    if(operator.getYButton()){
+    
+     
+     if(operator.getYButton()){
       launchpower = 0.7;
+    }  
+    else if(operator.getAButton()){
+      launchpower = -0.3;
     }
-    else {
-      launchpower = 0; }  
-  
-    // rotate arm
+
+    else{
+      launchpower = 0;
+    }
+
+
+    double intakepower = operator.getRightTriggerAxis();
+    double outputpower = operator.getLeftTriggerAxis();
+    if(intakepower > 0){
+      intakepower *= -1;
+      outputpower = 0;
+      feedpower = intakepower + outputpower;
+
+    } else if(outputpower > 0){
+       intakepower = 0;
+       outputpower *= 1;
+       feedpower = intakepower + outputpower;
+
+    } else {
+      intakepower = 0;
+      outputpower = 0; 
+      feedpower = 0;
+    }  
+    
+      //rotate arm
     double rotateSpeed = operator.getLeftY(); //Get the rotate speed, forward is down
       if(rotateSpeed > 0) { //stick pulled down(+) -> rotate up
-        rotateSpeed *= 0.2; //apply a scale factor of to the rotateSpeed variable
+        rotateSpeed *= 0.4; //apply a scale factor of to the rotateSpeed variable
       }  else if(rotateSpeed < 0) {  // stick pushed forward (-)  -> rotate down
-        rotateSpeed *= 0.2;
+        rotateSpeed *= 0.4;
       }  else{
         rotateSpeed *= 0;  // I would like to use a motor stop here
       }
       
-
-    /*
-    if (operator.getAButton()){
-        timerA.reset();
-    }
-    else if (timerA.get()<1){
-      feedpower = 1;
-    }
-    
-    else if (timerA.get()>1){
-      feedpower = 0;
-      launchpower = 0;
-    }
-
-  
-
-    else  {
-    if (operator.getYButton()){
-        timerY.reset();
-    }
-
-    else if (timerY.get()<.1){
-      feedpower = 1;
-      launchpower = -1;
-    }
-
-    else if (timerY.get()<1){
-      launchpower = -1;
-      feedpower = 0;
-    }
-
-    else if (timerY.get()<2){
-      launchpower = -1;
-      feedpower = -1;
-    }
-  
-    else {
-      launchpower = 0;
-      feedpower = 0;
-    }
      
-  }
+    
+    
+      
+
+
 
 
     m_feed.set(feedpower);
-*/
+
      m_rotateLeft.set(rotateSpeed); // motor values are set based on logic above
      m_rotateRight.set(rotateSpeed);
 
